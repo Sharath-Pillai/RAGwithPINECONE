@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Pinecone Assistant Chat</title>
+  <style>
+    :root {
+      color-scheme: light;
+      font-family: system-ui, sans-serif;
+      color: #172033;
+      background: #f3f5f9;
+    }
+
+    body {
+      box-sizing: border-box;
+      min-height: 100vh;
+      margin: 0;
+      padding: 32px 16px;
+    }
+
+    main {
+      display: flex;
+      flex-direction: column;
+      width: min(720px, 100%);
+      height: min(760px, calc(100vh - 64px));
+      min-height: 420px;
+      margin: 0 auto;
+      overflow: hidden;
+      background: white;
+      border: 1px solid #dfe4ed;
+      border-radius: 16px;
+      box-shadow: 0 12px 36px #17203312;
+    }
+
+    header {
+      padding: 20px 24px;
+      border-bottom: 1px solid #e8ebf1;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.2rem;
+    }
+
+    header p {
+      margin: 6px 0 0;
+      color: #667085;
+      font-size: 0.9rem;
+    }
+
+    #upload-form {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+      padding: 0;
+      border: 0;
+    }
+
+    #file-input {
+      flex: 1;
+      min-width: 180px;
+      font: inherit;
+    }
+
+    #upload-button {
+      min-height: 38px;
+    }
+
+    #upload-status {
+      min-height: 1.2em;
+      margin: 8px 0 0;
+      color: #667085;
+      font-size: 0.85rem;
+    }
+
+    #upload-status.error {
+      color: #a32626;
+    }
+
+    #messages {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      gap: 12px;
+      padding: 20px 24px;
+      overflow-y: auto;
+    }
+
+    .message {
+      max-width: 82%;
+      padding: 11px 14px;
+      border-radius: 14px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    .user {
+      align-self: flex-end;
+      color: white;
+      background: #3156d3;
+      border-bottom-right-radius: 4px;
+    }
+
+    .assistant {
+      align-self: flex-start;
+      background: #eef1f7;
+      border-bottom-left-radius: 4px;
+    }
+
+    .error {
+      color: #a32626;
+      background: #fff0f0;
+    }
+
+    .pending::after {
+      content: "...";
+      display: inline-block;
+      width: 1.5em;
+      overflow: hidden;
+      vertical-align: bottom;
+      animation: dots 1.2s ease-in-out infinite;
+    }
+
+    @keyframes dots {
+
+      0%,
+      100% {
+        opacity: 0.25;
+      }
+
+      50% {
+        opacity: 1;
+      }
+    }
+
+    form {
+      display: flex;
+      gap: 10px;
+      padding: 16px;
+      border-top: 1px solid #e8ebf1;
+    }
+
+    input {
+      flex: 1;
+      min-width: 0;
+      padding: 12px 14px;
+      border: 1px solid #cbd2df;
+      border-radius: 10px;
+      font: inherit;
+    }
+
+    button {
+      padding: 0 20px;
+      color: white;
+      background: #3156d3;
+      border: 0;
+      border-radius: 10px;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: wait;
+      opacity: 0.6;
+    }
+
+    @media (max-width: 520px) {
+      body {
+        padding: 0;
+      }
+
+      main {
+        width: 100%;
+        height: 100vh;
+        min-height: 0;
+        border: 0;
+        border-radius: 0;
+      }
+
+      #messages {
+        padding: 16px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main>
+    <header>
+      <h1>Policy Support Agent by pinecone</h1>
+      <p>Ask a question or add a file to the assistant.</p>
+      <form id="upload-form">
+        <input id="file-input" name="file" type="file" accept=".txt,.pdf,.json,.md,.docx"
+          aria-label="Choose a file to upload" required>
+        <button id="upload-button" type="submit">Add file</button>
+      </form>
+      <p id="upload-status" role="status" aria-live="polite"></p>
+    </header>
+    <section id="messages" aria-live="polite" aria-label="Conversation">
+      <div class="message assistant">Hello! How can I help?</div>
+    </section>
+    <form id="chat-form">
+      <input id="message-input" name="message" autocomplete="off" placeholder="Type your message..."
+        aria-label="Your message" required>
+      <button id="send-button" type="submit">Send</button>
+    </form>
+  </main>
+  <script>
+    const form = document.querySelector("#chat-form");
+    const input = document.querySelector("#message-input");
+    const button = document.querySelector("#send-button");
+    const messageList = document.querySelector("#messages");
+    const uploadForm = document.querySelector("#upload-form");
+    const fileInput = document.querySelector("#file-input");
+    const uploadButton = document.querySelector("#upload-button");
+    const uploadStatus = document.querySelector("#upload-status");
+    const messages = [];
+
+    function addMessage(role, content, isError = false) {
+      const element = document.createElement("div");
+      element.className = `message ${role}${isError ? " error" : ""}`;
+      element.textContent = content;
+      messageList.append(element);
+      messageList.scrollTop = messageList.scrollHeight;
+    }
+
+    function addPendingMessage() {
+      const element = document.createElement("div");
+      element.className = "message assistant pending";
+      element.textContent = "Thinking";
+      element.setAttribute("role", "status");
+      element.setAttribute("aria-label", "Assistant is thinking");
+      messageList.append(element);
+      messageList.scrollTop = messageList.scrollHeight;
+      return element;
+    }
+
+    uploadForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const file = fileInput.files[0];
+      if (!file || uploadButton.disabled) return;
+
+      uploadButton.disabled = true;
+      uploadStatus.classList.remove("error");
+      uploadStatus.textContent = `Uploading and processing ${file.name}...`;
+
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await fetch("/api/files", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || "The upload failed.");
+        }
+
+        uploadStatus.textContent = `${data.name} added (${data.status}).`;
+        fileInput.value = "";
+      } catch (error) {
+        uploadStatus.classList.add("error");
+        uploadStatus.textContent = error.message || "Unable to upload the file.";
+      } finally {
+        uploadButton.disabled = false;
+      }
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const content = input.value.trim();
+      if (!content || button.disabled) return;
+
+      messages.push({ role: "user", content });
+      addMessage("user", content);
+      input.value = "";
+      button.disabled = true;
+      const pendingMessage = addPendingMessage();
+
+      try {
+        const response = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.detail || "The request failed.");
+        }
+
+        pendingMessage.remove();
+        messages.push({ role: "assistant", content: data.response });
+        addMessage("assistant", data.response);
+      } catch (error) {
+        pendingMessage.remove();
+        addMessage("assistant", error.message || "Unable to contact the server.", true);
+      } finally {
+        button.disabled = false;
+        input.focus();
+      }
+    });
+  </script>
+</body>
+
+</html>

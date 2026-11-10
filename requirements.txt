@@ -1,0 +1,5 @@
+fastapi
+pydantic-settings
+pinecone
+python-multipart
+uvicorn[standard]
