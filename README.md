@@ -1,39 +1,75 @@
-# Pinecone Assistant Chat
+# Policy Support Agent
 
-A small browser chat UI backed by a Pinecone Assistant and a FastAPI server.
+A small web app for asking questions of a Pinecone Assistant and adding policy
+documents to it. The app uses FastAPI for its backend and serves a browser-based
+chat interface.
 
-## Requirements
+## What you need
 
 - Python 3.10 or newer
-- A Pinecone API key and an existing Pinecone Assistant
+- A Pinecone account, API key, and an Assistant that has already been created
+- Git, if you are cloning the project
 
-Create and activate a virtual environment, then install dependencies:
+The default Assistant name is `policy-support-agent`. If your Assistant has a
+different name, set `PINECONE_ASSISTANT_NAME` as described below.
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-```
+## Set up
 
-Create a `.env` file and set `PINECONE_API_KEY`. Optionally set
-`PINECONE_ASSISTANT_NAME` to your assistant's name (defaults to
-`policy-support-agent`).
-Keep `.env` private; it is excluded from Git. The API key stays on the server
-and is never sent to the browser.
+1. Get the project on your computer and open a terminal in the project folder
+   (the folder containing `requirements.txt`).
+2. Create and activate a virtual environment.
 
-The assistant must already exist in your Pinecone project.
+   **Windows (PowerShell):**
+
+   ```powershell
+   python -m venv .venv
+   .\.venv\Scripts\Activate.ps1
+   ```
+
+   **macOS or Linux:**
+
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   ```
+
+3. Install the project dependencies:
+
+   ```bash
+   python -m pip install -r requirements.txt
+   ```
+
+4. Create a file named `.env` in the project folder and add your Pinecone
+   settings:
+
+   ```dotenv
+   PINECONE_API_KEY=your-pinecone-api-key
+   PINECONE_ASSISTANT_NAME=policy-support-agent
+   ```
+
+   Replace the example API key and, if needed, the Assistant name. Keep this
+   file private; `.env` is excluded from Git. The Assistant must already exist
+   in the Pinecone project associated with your API key.
 
 ## Run
 
-```powershell
-uvicorn app.main:app --reload
+With the virtual environment active, start the app from the project folder:
+
+```bash
+python -m uvicorn app.main:app --reload
 ```
 
-Open `http://127.0.0.1:8000/` for the chat UI. The `/health` endpoint checks
-that the API is running, and interactive API documentation is available at
-`http://127.0.0.1:8000/docs`.
+Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser. Press
+`Ctrl+C` in the terminal to stop the server.
 
-Use **Add file** in the chat UI to upload `.txt`, `.pdf`, `.json`, `.md`, or
-`.docx` files to the configured Pinecone Assistant. The UI shows upload
-processing status and a temporary "Thinking..." message while chat replies
-are being generated.
+## Using the app
+
+- Enter a question in the chat to get a response from the configured Assistant.
+- Use **Add file** to upload `.txt`, `.pdf`, `.json`, `.md`, or `.docx` files
+  to that Assistant.
+- Visit [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs) for the API
+  documentation. The `/health` endpoint reports whether the web app is running.
+
+The chat UI is local to your browser; the server needs an internet connection
+to communicate with Pinecone. Keep your API key private and do not expose the
+development server to untrusted networks.
